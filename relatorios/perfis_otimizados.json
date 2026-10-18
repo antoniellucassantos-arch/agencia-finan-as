@@ -1,0 +1,84 @@
+{
+ "tartaruga": {
+  "parametros": {
+   "limiar_saida": -0.3,
+   "stop_k": 4.0,
+   "decide_a_cada": "1d"
+  },
+  "teste": {
+   "retorno_pct": 3.1937875373669877,
+   "max_queda_pct": 35.074739845184574,
+   "sharpe": 0.22505295156224622,
+   "trades": 110,
+   "acerto_pct": 18.181818181818183,
+   "fator_lucro": 1.0097076718922147,
+   "media_trade_pct": 0.29334413296914014,
+   "final": 2030.614288698459
+  },
+  "teste_padrao": {
+   "retorno_pct": 2.4128652471857803,
+   "max_queda_pct": 37.62707559346357,
+   "sharpe": 0.21412558951811322,
+   "trades": 111,
+   "acerto_pct": 18.91891891891892,
+   "fator_lucro": 0.9941536677208551,
+   "media_trade_pct": 0.3831554857199914,
+   "final": 2015.2475500735115
+  }
+ },
+ "equilibrado": {
+  "parametros": {
+   "limiar_entrada": 0.4,
+   "limiar_saida": -0.3,
+   "trail_k": 3.5,
+   "stop_k": 3.0
+  },
+  "teste": {
+   "retorno_pct": 6.1600383250138835,
+   "max_queda_pct": 23.8627655908634,
+   "sharpe": 0.30014650875874466,
+   "trades": 204,
+   "acerto_pct": 24.509803921568626,
+   "fator_lucro": 1.0944994642072694,
+   "media_trade_pct": 0.31263973428375763,
+   "final": 2088.983221334813
+  },
+  "teste_padrao": {
+   "retorno_pct": -2.5844884348570463,
+   "max_queda_pct": 30.49649774587852,
+   "sharpe": 0.046280910896070414,
+   "trades": 239,
+   "acerto_pct": 27.19665271966527,
+   "fator_lucro": 0.9687649475517657,
+   "media_trade_pct": -0.08259951472235984,
+   "final": 1916.9112254303104
+  }
+ },
+ "foguete": {
+  "parametros": {
+   "stop_k": 3.0,
+   "risco_por_trade": 0.015,
+   "decide_a_cada": "4h"
+  },
+  "teste": {
+   "retorno_pct": 12.796031592253376,
+   "max_queda_pct": 32.81898555687793,
+   "sharpe": 0.4639020131334016,
+   "trades": 42,
+   "acerto_pct": 28.57142857142857,
+   "fator_lucro": 1.333627053921421,
+   "media_trade_pct": 1.7431847337318347,
+   "final": 2219.564170728534
+  },
+  "teste_padrao": {
+   "retorno_pct": -9.083996761909097,
+   "max_queda_pct": 45.96068246766892,
+   "sharpe": -0.08985629234658787,
+   "trades": 53,
+   "acerto_pct": 18.867924528301888,
+   "fator_lucro": 0.8414829421696566,
+   "media_trade_pct": -0.5565910355502377,
+   "final": 1789.015982960918
+  }
+ }
+}

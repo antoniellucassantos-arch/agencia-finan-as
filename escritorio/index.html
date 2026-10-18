@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agência Cripto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: o pregão isométrico à esquerda, a mesa de controle à direita; empilha no celular. Visual noturno de mesa de operações. */
+:root {
+  color-scheme: dark;
+  --bg: #080b12;
+  --panel: #0e121c;
+  --raise: #151b28;
+  --line: #222a3b;
+  --fg: #e9ecf4;
+  --muted: #8a93a8;
+  --accent: #f2b84b;
+  --up: #3ddc97;
+  --down: #ff6b6b;
+  --bubble: #f5f2ea;
+  --bubble-fg: #161a24;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font-body); }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.app { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+.stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #090c15; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hud { position: absolute; left: 14px; right: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.hud.top { top: 14px; }
+.hud.bottom { bottom: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+.brand small { font: 500 12px var(--font-body); color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+.coin { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd98a, var(--accent) 60%, #a8741d); box-shadow: 0 0 0 2px #3a2a0c inset; }
+.chip { font-size: 12px; color: var(--muted); background: rgba(14,18,28,.82); border: 1px solid var(--line); padding: 5px 10px; border-radius: 8px; display: flex; gap: 8px; align-items: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot.ok { background: var(--up); box-shadow: 0 0 8px var(--up); }
+.dot.erro { background: var(--down); }
+
+.sign { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; display: flex; gap: 6px; align-items: baseline;
+  padding: 3px 8px; border-radius: 6px; background: rgba(8,11,18,.86); border: 1px solid var(--c, var(--line)); font-size: 11px; }
+.sign b { font-family: var(--font-mono); font-weight: 500; color: var(--c, var(--fg)); }
+.sign .px { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sign .up { color: var(--up); } .sign .down { color: var(--down); }
+.zone { position: absolute; transform: translate(-50%, -50%); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--c); background: rgba(8,11,18,.8); border: 1px solid var(--c); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.bubble { position: absolute; transform: translate(-50%, -100%); max-width: 200px; padding: 6px 9px 7px; border-radius: 9px; background: var(--bubble); color: var(--bubble-fg); font-size: 12px; line-height: 1.3; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: var(--bubble); transform: translateX(-50%) rotate(45deg); }
+.bubble b { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--c); filter: brightness(.65) saturate(1.5); }
+
+.panel { min-width: 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 4px; }
+.block { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 800 20px/1.15 var(--font-display); }
+h2 { margin: 0; font: 800 17px/1.2 var(--font-display); }
+.note { margin: 0; font-size: 12px; color: var(--muted); }
+.warn { color: var(--accent); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--up); } .down { color: var(--down); }
+
+.board { display: flex; flex-direction: column; gap: 4px; }
+.row { display: grid; grid-template-columns: 10px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 8px; border-radius: 9px; border: 1px solid transparent; background: transparent; text-align: left; width: 100%; }
+.row:hover { background: var(--raise); }
+.row[aria-pressed="true"] { border-color: var(--c); background: var(--raise); }
+.row .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.row .nm { min-width: 0; }
+.row .nm b { display: block; font-weight: 600; }
+.row .nm span { font-size: 11px; color: var(--muted); }
+.row .val { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.row .val small { display: block; font-size: 11px; }
+.rank { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; padding: 4px 4px; border-bottom: 1px solid var(--line); }
+td { padding: 5px 4px; border-bottom: 1px dashed var(--line); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+td.l, th.l { font-family: var(--font-body); }
+.scroll { overflow-x: auto; }
+.votes td { text-align: center; padding: 3px 2px; }
+.votes th { text-align: center; writing-mode: vertical-rl; transform: rotate(180deg); height: 84px; padding: 2px; white-space: nowrap; }
+.votes th.l, .votes td.l { text-align: left; writing-mode: horizontal-tb; transform: none; height: auto; }
+.cell { display: inline-block; width: 18px; height: 18px; border-radius: 4px; vertical-align: middle; }
+.votes tr.coinrow { cursor: pointer; }
+.votes tr.coinrow:hover td { background: var(--raise); }
+.reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.reasons li { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 8px; }
+.reasons li b { font-weight: 500; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: transparent; padding: 7px 9px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 13px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.log li { display: grid; grid-template-columns: 74px minmax(0,1fr); gap: 8px; padding: 6px 2px; border-bottom: 1px dashed var(--line); font-size: 12px; }
+.log time { font-family: var(--font-mono); color: var(--muted); font-size: 11px; }
+.log b { color: var(--c); font-weight: 600; }
+.empty { color: var(--muted); font-size: 12px; margin: 0; padding: 6px 0; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+@media (max-width: 900px) {
+  .app { height: auto; grid-template-columns: minmax(0,1fr); }
+  .stage { height: 62vh; min-height: 360px; }
+  .panel { overflow: visible; padding-right: 0; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage" id="stage" aria-label="Pregão isométrico com os agentes">
+    <canvas id="c"></canvas>
+    <div class="overlay" id="overlay"></div>
+    <div class="hud top">
+      <div class="brand"><span class="coin" aria-hidden="true"></span>Agência Cripto <small>dinheiro fictício</small></div>
+      <div class="chip"><span class="dot" id="dot"></span><span id="statusTxt">Conectando ao robô…</span></div>
+    </div>
+    <div class="hud bottom">
+      <div class="chip mono" id="clock">—</div>
+      <div class="chip">Arraste para girar · role para zoom · clique num agente</div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <section class="block">
+      <span class="label">Placar dos robôs</span>
+      <div class="board" id="board"><p class="empty">Esperando o robô em Python…</p></div>
+      <p class="note" id="boardNote"></p>
+    </section>
+
+    <section class="block" id="robotBlock" hidden>
+      <div><span class="label" id="rbStyle"></span><h2 id="rbName"></h2></div>
+      <p class="note" id="rbDesc"></p>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="pos" aria-selected="true">Posições</button>
+        <button type="button" role="tab" data-tab="trades" aria-selected="false">Operações</button>
+        <button type="button" role="tab" data-tab="past" aria-selected="false">No passado</button>
+      </div>
+      <div id="rbBody"></div>
+    </section>
+
+    <section class="block">
+      <span class="label">Votos dos agentes agora</span>
+      <div class="scroll"><table class="votes" id="votes"></table></div>
+      <div class="legend"><span><i style="background:#3ddc97"></i>compra</span><span><i style="background:#3a4256"></i>neutro</span><span><i style="background:#ff6b6b"></i>venda/fora</span><span>Clique numa moeda para ver os motivos.</span></div>
+      <div id="reasons" hidden></div>
+    </section>
+
+    <section class="block">
+      <span class="label">Mercado</span>
+      <p class="note" id="macroTxt">—</p>
+      <p class="note" id="fngTxt">—</p>
+    </section>
+
+    <section class="block">
+      <span class="label">Atividade</span>
+      <ul class="log" id="log"><li class="empty">Nada ainda.</li></ul>
+    </section>
+
+    <p class="note">Simulação com dinheiro fictício e preços reais da Binance. Nada aqui é recomendação de investimento.</p>
+  </aside>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* =========================================================
+   Planta do escritório
+   ========================================================= */
+const ZONES = [
+  { id: 'risco', name: 'Risco & Compliance', color: '#ff6b6b', x: -11, z: -8, w: 7, d: 7, back: true },
+  { id: 'macro', name: 'Macro', color: '#6f9bff', x: -3.5, z: -8, w: 6, d: 7, back: true },
+  { id: 'sentimento', name: 'Sentimento', color: '#f27aa6', x: 4.5, z: -8, w: 8, d: 7, back: true },
+  { id: 'mesa', name: 'Mesa de operações', color: '#f2b84b', x: -3, z: 5, w: 23, d: 15 },
+  { id: 'gestao', name: 'Robôs', color: '#3ddc97', x: 11.75, z: 5, w: 4.5, d: 15 },
+];
+const ZONE = Object.fromEntries(ZONES.map(z => [z.id, z]));
+const COIN = {
+  BTCUSDT: { trader: 'Bruno', color: '#f7931a' }, ETHUSDT: { trader: 'Elisa', color: '#8c8cff' },
+  SOLUSDT: { trader: 'Sol', color: '#14f195' }, BNBUSDT: { trader: 'Beni', color: '#f3ba2f' },
+  XRPUSDT: { trader: 'Xavier', color: '#c9d1d9' }, ADAUSDT: { trader: 'Ada', color: '#3c7cff' },
+  DOGEUSDT: { trader: 'Duda', color: '#c2a633' }, LINKUSDT: { trader: 'Lina', color: '#2a5ada' },
+};
+const ROBOT = {
+  tartaruga: { manager: 'Tito', color: '#3ddc97' },
+  equilibrado: { manager: 'Eva', color: '#4cc9f0' },
+  foguete: { manager: 'Fred', color: '#ff8a5b' },
+};
+const HUB_Z = -3.5;
+const SKINS = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac', '#a86b3c'];
+const HAIRS = ['#2b1d14', '#4a2f1b', '#121212', '#b5651d', '#d9b16f', '#5a3b6e'];
+const WALK = 2.8;
+const V = (x, z) => new THREE.Vector3(x, 0, z);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const nf = (v, d = 2) => (v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const brl = v => 'R$ ' + nf(v, 2);
+const pct = v => (v >= 0 ? '+' : '') + nf(v, 2) + '%';
+const pxf = v => v >= 100 ? nf(v, 2) : v >= 1 ? nf(v, 4) : nf(v, 5);
+const hora = ms => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const dataHora = ms => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+/* =========================================================
+   Cena
+   ========================================================= */
+const stage = document.getElementById('stage');
+const canvas = document.getElementById('c');
+const overlay = document.getElementById('overlay');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#090c15');
+const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 300);
+camera.position.set(27, 25, 27);
+camera.zoom = 1.3;
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(-0.5, 0, 1.5);
+controls.enableDamping = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+controls.minZoom = 0.6; controls.maxZoom = 3.5;
+controls.minPolarAngle = 0.45; controls.maxPolarAngle = 1.2;
+controls.update();
+let W = 1, H = 1;
+function resize() {
+  const r = stage.getBoundingClientRect();
+  W = Math.max(1, r.width); H = Math.max(1, r.height);
+  renderer.setSize(W, H, false);
+  const aspect = W / H, halfH = Math.max(12.5, 17 / aspect);
+  camera.left = -halfH * aspect; camera.right = halfH * aspect; camera.top = halfH; camera.bottom = -halfH;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+scene.add(new THREE.HemisphereLight('#a9b8ff', '#1a1f2e', 0.9));
+const sun = new THREE.DirectionalLight('#fff2dd', 1.7);
+sun.position.set(14, 26, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 70 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.bias = -0.0008;
+scene.add(sun);
+
+const matCache = new Map();
+function mat(color, opts = {}) {
+  const k = color + JSON.stringify(opts);
+  if (!matCache.has(k)) matCache.set(k, new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0.05, ...opts }));
+  return matCache.get(k);
+}
+function box(w, h, d, m, x, y, z, parent, shadow = true) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  mesh.position.set(x, y, z); mesh.castShadow = shadow; mesh.receiveShadow = true;
+  parent.add(mesh); return mesh;
+}
+
+const FLOOR = { x0: -15.5, x1: 14.5, z0: -12, z1: 14 };
+box(FLOOR.x1 - FLOOR.x0, 0.3, FLOOR.z1 - FLOOR.z0, mat('#131927'), (FLOOR.x0 + FLOOR.x1) / 2, -0.15, (FLOOR.z0 + FLOOR.z1) / 2, scene, false);
+{
+  const pts = [];
+  for (let x = Math.ceil(FLOOR.x0); x <= FLOOR.x1; x++) pts.push(x, 0.004, FLOOR.z0, x, 0.004, FLOOR.z1);
+  for (let z = Math.ceil(FLOOR.z0); z <= FLOOR.z1; z++) pts.push(FLOOR.x0, 0.004, z, FLOOR.x1, 0.004, z);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#1c2436' })));
+}
+const wallMat = mat('#151b2a');
+box(FLOOR.x1 - FLOOR.x0, 3.4, 0.25, wallMat, (FLOOR.x0 + FLOOR.x1) / 2, 1.7, FLOOR.z0 - 0.12, scene);
+box(0.25, 3.4, FLOOR.z1 - FLOOR.z0, wallMat, FLOOR.x0 - 0.12, 1.7, (FLOOR.z0 + FLOOR.z1) / 2, scene);
+const strip = new THREE.MeshBasicMaterial({ color: '#f2b84b', transparent: true, opacity: 0.55 });
+box(FLOOR.x1 - FLOOR.x0, 0.04, 0.04, strip, (FLOOR.x0 + FLOOR.x1) / 2, 0.06, FLOOR.z0 + 0.03, scene, false);
+box(0.04, 0.04, FLOOR.z1 - FLOOR.z0, strip, FLOOR.x0 + 0.03, 0.06, (FLOOR.z0 + FLOOR.z1) / 2, scene, false);
+
+for (const z of ZONES) {
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(z.w, z.d), new THREE.MeshBasicMaterial({ color: z.color, transparent: true, opacity: 0.05, depthWrite: false }));
+  pad.rotation.x = -Math.PI / 2; pad.position.set(z.x, 0.012, z.z); scene.add(pad);
+  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(z.w, z.d)), new THREE.LineBasicMaterial({ color: z.color, transparent: true, opacity: 0.4 }));
+  edge.rotation.x = -Math.PI / 2; edge.position.set(z.x, 0.016, z.z); scene.add(edge);
+  if (z.back) {
+    const glass = new THREE.MeshStandardMaterial({ color: z.color, transparent: true, opacity: 0.09, depthWrite: false, roughness: 0.1 });
+    const trim = new THREE.MeshBasicMaterial({ color: z.color });
+    const h = 1.4, zb = z.z - z.d / 2;
+    box(z.w, h, 0.04, glass, z.x, h / 2, zb, scene, false);
+    box(0.04, h, z.d, glass, z.x - z.w / 2, h / 2, z.z, scene, false);
+    box(0.04, h, z.d, glass, z.x + z.w / 2, h / 2, z.z, scene, false);
+    box(z.w, 0.03, 0.05, trim, z.x, h, zb, scene, false);
+    box(0.05, 0.03, z.d, trim, z.x - z.w / 2, h, z.z, scene, false);
+    box(0.05, 0.03, z.d, trim, z.x + z.w / 2, h, z.z, scene, false);
+  }
+}
+
+/* ---------- mesas com monitores que mostram dados reais ---------- */
+function makeScreen(w = 320, h = 186) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  return { cv, ctx: cv.getContext('2d'), tex };
+}
+function makeDesk(x, z, angle, color) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = angle; scene.add(g);
+  const wood = mat('#2a3142'), dark = mat('#0e121b');
+  box(1.5, 0.06, 0.75, wood, 0, 0.75, 0, g);
+  box(0.06, 0.72, 0.68, dark, -0.68, 0.36, 0, g);
+  box(0.06, 0.72, 0.68, dark, 0.68, 0.36, 0, g);
+  box(0.06, 0.18, 0.06, dark, 0, 0.87, -0.22, g);
+  box(0.86, 0.52, 0.05, dark, 0, 1.11, -0.24, g);
+  box(0.42, 0.02, 0.14, mat('#3a4256'), 0, 0.79, 0.08, g, false);
+  const scr = makeScreen();
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.45), new THREE.MeshBasicMaterial({ map: scr.tex }));
+  plane.position.set(0, 1.11, -0.213); g.add(plane);
+  const chair = mat(new THREE.Color(color).multiplyScalar(0.45).getStyle());
+  box(0.5, 0.08, 0.5, chair, 0, 0.46, 0.55, g);
+  box(0.5, 0.5, 0.06, chair, 0, 0.74, 0.82, g);
+  box(0.06, 0.42, 0.06, dark, 0, 0.21, 0.55, g);
+  g.updateMatrixWorld(true);
+  const w = (lx, ly, lz) => { const v = g.localToWorld(new THREE.Vector3(lx, ly, lz)); return v; };
+  const flat = v => { v.y = 0; return v; };
+  return { screen: scr, seat: flat(w(0, 0, 0.55)), stand: flat(w(0, 0, 1.2)), screenPos: w(0, 1.11, -0.2), signPos: w(0, 1.75, -0.24), face: angle + Math.PI };
+}
+
+/* ---------- objetos de cena ---------- */
+const leds = [];
+function rack(x, z) {
+  box(0.7, 1.9, 0.6, mat('#10141f'), x, 0.95, z, scene);
+  for (let i = 0; i < 6; i++) {
+    const m = new THREE.MeshBasicMaterial({ color: i % 2 ? '#3ddc97' : '#6f9bff' });
+    box(0.36, 0.03, 0.02, m, x - 0.05, 0.4 + i * 0.25, z + 0.31, scene, false);
+    leds.push(m);
+  }
+}
+rack(7.8, -11.2); rack(8.6, -11.2);
+function plant(x, z, s = 1) {
+  box(0.4 * s, 0.45 * s, 0.4 * s, mat('#2a3142'), x, 0.225 * s, z, scene);
+  const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42 * s, 0), mat('#2f7d5b', { flatShading: true }));
+  leaf.position.set(x, 0.8 * s, z); leaf.castShadow = true; scene.add(leaf);
+}
+plant(-14.8, -11.3); plant(-14.8, 13.3); plant(13.8, 13.3, 1.2); plant(-14.8, 4.2, 0.8); plant(9.2, -4.6, 0.8);
+box(2.6, 1.0, 0.7, mat('#2a3142'), 12.2, 0.5, -6.6, scene);
+box(0.5, 0.6, 0.45, mat('#0e121b'), 11.6, 1.3, -6.55, scene);
+box(0.12, 0.14, 0.12, mat('#e9ecf4'), 12.6, 1.07, -6.7, scene);
+const CAFE = [V(11.2, -5.4), V(12.0, -5.4), V(12.8, -5.4)];
+const cafeUsed = [null, null, null];
+const big = makeScreen(640, 360);
+box(5.4, 3.0, 0.12, mat('#0e121b'), 11.7, 1.9, FLOOR.z0 + 0.06, scene);
+{
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(5.16, 2.76), new THREE.MeshBasicMaterial({ map: big.tex }));
+  p.position.set(11.7, 1.9, FLOOR.z0 + 0.125); scene.add(p);
+}
+
+/* =========================================================
+   Pessoas
+   ========================================================= */
+function makePerson(shirt, skin, hair) {
+  const g = new THREE.Group(), parts = {};
+  const pants = mat('#232a3b'), shirtM = mat(shirt), skinM = mat(skin), hairM = mat(hair);
+  const leg = s => { const p = new THREE.Group(); p.position.set(s * 0.085, 0.45, 0); g.add(p); box(0.12, 0.45, 0.14, pants, 0, -0.225, 0, p); return p; };
+  parts.legL = leg(-1); parts.legR = leg(1);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.28, 4, 10), shirtM);
+  torso.position.y = 0.78; torso.castShadow = true; g.add(torso);
+  const arm = s => { const p = new THREE.Group(); p.position.set(s * 0.215, 0.98, 0); g.add(p); box(0.085, 0.36, 0.085, shirtM, 0, -0.17, 0, p); box(0.08, 0.07, 0.08, skinM, 0, -0.37, 0, p); return p; };
+  parts.armL = arm(-1); parts.armR = arm(1);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 14), skinM); head.position.y = 1.23; head.castShadow = true; g.add(head);
+  const hm = new THREE.Mesh(new THREE.SphereGeometry(0.168, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hairM); hm.position.set(0, 1.25, -0.01); g.add(hm);
+  const eye = mat('#10131b');
+  box(0.03, 0.035, 0.02, eye, -0.055, 1.24, 0.152, g, false); box(0.03, 0.035, 0.02, eye, 0.055, 1.24, 0.152, g, false);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 32), new THREE.MeshBasicMaterial({ color: shirt, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; ring.visible = false; g.add(ring); parts.ring = ring;
+  scene.add(g);
+  return { g, parts };
+}
+
+const people = [];
+const BY = {};
+function addPerson(id, name, role, color, desk, hubPath, kind, extra = {}) {
+  const idx = people.length;
+  const p = {
+    id, name, role, color, desk, kind, ...extra,
+    pos: desk.seat.clone(), rot: desk.face, targetRot: desk.face, state: 'sit', path: [], onArrive: null,
+    anim: Math.random() * 10, bubbleUntil: 0, bubbleText: '', busy: false,
+    home: { pos: desk.seat, hub: hubPath, face: desk.face },
+  };
+  p.at = p.home;
+  p.mesh = makePerson(color, SKINS[idx % SKINS.length], HAIRS[(idx * 5) % HAIRS.length]);
+  p.mesh.g.traverse(o => { o.userData.person = p; });
+  people.push(p); BY[id] = p;
+  return p;
+}
+// salas do fundo: porta no corredor
+function backDesk(zoneId, x) {
+  const z = ZONE[zoneId];
+  const d = makeDesk(x, z.z - 0.6, 0, z.color);
+  return { d, hub: [V(z.x, HUB_Z), d.stand] };
+}
+{
+  let r = backDesk('risco', -12.6); addPerson('rita', 'Rita', 'Gerente de risco', '#ff6b6b', r.d, r.hub, 'risco');
+  r = backDesk('risco', -9.4); addPerson('caio', 'Caio', 'Compliance', '#ffa3a3', r.d, r.hub, 'compliance');
+  r = backDesk('macro', -3.5); addPerson('marcos', 'Marcos', 'Analista macro', '#6f9bff', r.d, r.hub, 'macro');
+  r = backDesk('sentimento', 4.5); addPerson('sara', 'Sara', 'Sentimento e notícias', '#f27aa6', r.d, r.hub, 'sentimento');
+}
+// mesa de operações: duas fileiras de quatro, corredores entre as mesas
+const TRADER_SLOTS = [];
+for (const z of [1.0, 7.6]) for (const x of [-12, -7.5, -3, 1.5]) TRADER_SLOTS.push({ x, z });
+function makeTrader(sym, slot) {
+  const info = COIN[sym] || { trader: sym.slice(0, 4), color: '#9aa3b8' };
+  const d = makeDesk(slot.x, slot.z, 0, info.color);
+  const ax = slot.x + 2.25;
+  const hub = [V(ax, HUB_Z), V(ax, d.stand.z), d.stand];
+  return addPerson('t_' + sym, info.trader, 'Trader de ' + sym.replace('USDT', ''), info.color, d, hub, 'trader', { sym });
+}
+// gerentes dos robôs, olhando para a mesa
+['tartaruga', 'equilibrado', 'foguete'].forEach((rid, k) => {
+  const z = 1.0 + k * 4.0;
+  const d = makeDesk(11.2, z, Math.PI / 2, ROBOT[rid].color);
+  const hub = [V(13.6, HUB_Z), V(13.6, d.stand.z), d.stand];
+  addPerson('g_' + rid, ROBOT[rid].manager, 'Gerente do robô', ROBOT[rid].color, d, hub, 'gerente', { robot: rid });
+});
+
+/* ---------- caminhar pelo corredor ---------- */
+function route(fromSpot, toSpot) {
+  const pts = [];
+  [...fromSpot.hub].reverse().forEach(p => pts.push(p.clone()));
+  toSpot.hub.forEach(p => pts.push(p.clone()));
+  pts.push(toSpot.pos.clone());
+  return pts;
+}
+function goTo(p, spot, after) {
+  releaseCafe(p);
+  p.path = route(p.at || p.home, spot);
+  p.dest = spot; p.at = null; p.state = 'walk'; p.onArrive = after;
+}
+function goHome(p, after) { goTo(p, p.home, () => { p.state = 'sit'; p.targetRot = p.home.face; after && after(); }); }
+function releaseCafe(p) { const i = cafeUsed.indexOf(p); if (i >= 0) cafeUsed[i] = null; }
+function goCoffee(p) {
+  const i = cafeUsed.findIndex(x => !x); if (i < 0) return;
+  cafeUsed[i] = p;
+  goTo(p, { pos: CAFE[i], hub: [V(CAFE[i].x, HUB_Z)], face: Math.PI }, () => {
+    p.state = 'coffee'; p.timer = 4 + Math.random() * 4; p.targetRot = Math.PI;
+    if (Math.random() < 0.5) say(p, pick(['Café ☕', 'Pausa rápida.', 'Mercado tá lento hoje.', 'Alguém viu o BTC?']));
+  });
+}
+function visitSpot(target, slot) {
+  const z = ZONE.risco;
+  const pos = V(target.home.pos.x + 0.9 - slot * 0.75, target.home.pos.z + 1.3);
+  return { pos, hub: [V(z.x, HUB_Z)], face: Math.atan2(target.home.pos.x - pos.x, target.home.pos.z - pos.z) };
+}
+function stepWalk(p, dt) {
+  let move = WALK * dt;
+  while (move > 0 && p.path.length) {
+    const t = p.path[0], dx = t.x - p.pos.x, dz = t.z - p.pos.z, dist = Math.hypot(dx, dz);
+    if (dist <= move) { p.pos.x = t.x; p.pos.z = t.z; p.path.shift(); move -= dist; }
+    else { p.pos.x += dx / dist * move; p.pos.z += dz / dist * move; move = 0; }
+    if (dist > 0.001) p.targetRot = Math.atan2(dx, dz);
+  }
+  if (!p.path.length) {
+    p.at = p.dest;
+    if (p.dest && p.dest.face !== undefined) p.targetRot = p.dest.face;
+    p.state = 'stand';
+    const f = p.onArrive; p.onArrive = null;
+    f && f();
+  }
+}
+function say(p, text, dur = 3.2) {
+  if (!p) return;
+  p.bubbleText = text; p.bubbleUntil = performance.now() + dur * 1000; p.bubbleDirty = true;
+}
+
+/* ---------- pacotes voando entre mesas ---------- */
+const packets = [];
+const packetGeo = new THREE.OctahedronGeometry(0.17);
+function sendPacket(from, to, color) {
+  const m = new THREE.Mesh(packetGeo, new THREE.MeshBasicMaterial({ color }));
+  m.position.copy(from); scene.add(m);
+  packets.push({ m, from: from.clone(), to: to.clone(), t: 0, dur: 1.2 + from.distanceTo(to) * 0.04 });
+}
+
+/* =========================================================
+   Estado vindo do robô em Python
+   ========================================================= */
+let S = null;
+let selectedRobot = 'equilibrado';
+let selectedCoin = null;
+let rbTab = 'pos';
+const seen = new Set();
+let firstLoad = true;
+const agentName = id => (S?.agentes || []).find(a => a.id === id)?.nome || id;
+const coinOf = sym => S?.moedas.find(m => m.simbolo === sym);
+const robotOf = id => S?.robos.find(r => r.id === id);
+
+async function poll() {
+  try {
+    const r = await fetch('/api/estado', { cache: 'no-store' });
+    const d = await r.json();
+    if (!d.robos) { setStatus(d.status || 'iniciando', d.msg || 'Iniciando o robô…'); return; }
+    const novo = !S;
+    S = d;
+    if (novo) buildTraders();
+    setStatus(d.status, d.msg);
+    handleEvents(d.eventos);
+    renderPanel();
+  } catch {
+    setStatus('erro', 'Sem conexão com o robô. Ele está rodando? (iniciar.bat)');
+  }
+}
+function setStatus(st, msg) {
+  document.getElementById('dot').className = 'dot ' + (st === 'ok' ? 'ok' : st === 'erro' ? 'erro' : '');
+  document.getElementById('statusTxt').textContent = msg;
+}
+let tradersBuilt = false;
+function buildTraders() {
+  if (tradersBuilt) return;
+  tradersBuilt = true;
+  S.moedas.slice(0, TRADER_SLOTS.length).forEach((m, i) => makeTrader(m.simbolo, TRADER_SLOTS[i]));
+  buildSigns();
+  rebuildPickables();
+}
+
+function handleEvents(evs) {
+  const ordered = [...(evs || [])].reverse();
+  for (const e of ordered) {
+    const k = e.t + '|' + e.robo + '|' + e.texto;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    if (!firstLoad) animateEvent(e);
+  }
+  firstLoad = false;
+}
+let visitSlot = 0;
+function animateEvent(e) {
+  const trader = e.moeda ? BY['t_' + e.moeda] : null;
+  const mgr = e.robo ? BY['g_' + e.robo] : null;
+  const rita = BY.rita, caio = BY.caio;
+  const rname = e.robo_nome || '';
+  if (e.tipo === 'entrada' && trader) {
+    const slot = visitSlot++ % 3;
+    if (trader.state === 'walk') { say(trader, `Comprei ${e.moeda.replace('USDT', '')} pro ${rname}!`); return; }
+    goTo(trader, visitSpot(rita, slot), () => {
+      trader.state = 'stand';
+      say(trader, `Rita, o ${rname} quer comprar ${e.moeda.replace('USDT', '')}. Posso?`, 2.6);
+      setTimeout(() => say(rita, `Aprovado: ${nf((e.extra?.valor || 0) * S.usdt_brl, 0)} reais, stop já definido.`, 2.8), 1300);
+      setTimeout(() => goHome(trader, () => {
+        say(trader, e.texto.replace('Comprei', `Comprei pro ${rname}:`), 4);
+        if (mgr) sendPacket(trader.desk.screenPos, mgr.desk.screenPos, ROBOT[e.robo].color);
+      }), 3600);
+    });
+  } else if (['saida', 'stop', 'alvo'].includes(e.tipo)) {
+    const lucro = e.extra?.lucro_pct;
+    if (trader) say(trader, `${rname}: ${e.texto}`, 4);
+    if (mgr) setTimeout(() => say(mgr, lucro >= 0 ? `Lucro de ${pct(lucro)} no ${e.moeda.replace('USDT', '')} 💰` : `Perda de ${pct(lucro)}. Faz parte, risco controlado.`, 3.4), 900);
+    if (trader && mgr) sendPacket(trader.desk.screenPos, mgr.desk.screenPos, lucro >= 0 ? '#3ddc97' : '#ff6b6b');
+  } else if (e.tipo === 'rejeitado') {
+    say(Math.random() < 0.5 ? rita : caio, `${rname}: ${e.texto}`, 3.8);
+  } else if (e.tipo === 'protecao') {
+    say(rita, e.texto, 3.6);
+  } else if (e.tipo === 'risco_dia') {
+    say(rita, `${rname}: ${e.texto}`, 4.5);
+  }
+}
+
+/* ---------- conversa de fundo: cada um fala o que está vendo ---------- */
+let chatterAt = performance.now() + 2500;
+function chatter() {
+  if (!S || performance.now() < chatterAt) return;
+  chatterAt = performance.now() + 2500 + Math.random() * 3000;
+  const roll = Math.random();
+  if (roll < 0.55) {
+    const traders = people.filter(p => p.kind === 'trader' && p.state === 'sit');
+    const t = pick(traders); if (!t) return;
+    const m = coinOf(t.sym); if (!m) return;
+    const ids = Object.keys(m.votos);
+    if (!ids.length) return;
+    const id = Math.random() < 0.45 ? 'tendencia_longa' : pick(ids);
+    const v = m.votos[id]; if (!v) return;
+    say(t, `${m.nome} · ${agentName(id)}: ${v.txt}`, 4);
+  } else if (roll < 0.68) {
+    say(BY.marcos, S.macro.txt || 'Lendo o BTC…', 4);
+  } else if (roll < 0.78) {
+    const f = S.sentimento;
+    say(BY.sara, f.valor != null ? `Medo e Ganância em ${f.valor}: ${f.rotulo}.` : 'Sem índice de sentimento agora.', 3.6);
+  } else if (roll < 0.92) {
+    const rid = pick(Object.keys(ROBOT)); const r = robotOf(rid); const g = BY['g_' + rid];
+    if (!r || !g) return;
+    const melhor = [...S.moedas].sort((a, b) => (b.placar[rid] ?? -9) - (a.placar[rid] ?? -9))[0];
+    const txt = r.posicoes.length
+      ? `${r.nome}: ${r.posicoes.length} posição(ões), ${pct(r.retorno_pct)} no total.`
+      : `${r.nome} em caixa. Melhor placar agora: ${melhor.nome} ${nf(melhor.placar[rid] ?? 0, 2)}.`;
+    say(g, txt, 3.8);
+  } else {
+    const idle = people.filter(p => p.state === 'sit' && p.kind !== 'gerente');
+    const p = pick(idle); if (p) goCoffee(p);
+  }
+}
+
+/* =========================================================
+   Monitores e telão
+   ========================================================= */
+function spark(c, data, x, y, w, h, color, fill = true) {
+  if (!data || data.length < 2) return;
+  const mn = Math.min(...data), mx = Math.max(...data), rg = mx - mn || 1;
+  c.beginPath();
+  data.forEach((v, i) => { const X = x + i / (data.length - 1) * w, Y = y + h - (v - mn) / rg * h; i ? c.lineTo(X, Y) : c.moveTo(X, Y); });
+  c.strokeStyle = color; c.lineWidth = 3; c.stroke();
+  if (fill) { c.lineTo(x + w, y + h); c.lineTo(x, y + h); c.closePath(); c.globalAlpha = 0.15; c.fillStyle = color; c.fill(); c.globalAlpha = 1; }
+}
+function screenBase(c, w, h, title, color) {
+  c.fillStyle = '#0b1120'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#16203a'; c.fillRect(0, 0, w, 26);
+  c.fillStyle = color; c.font = '600 15px "IBM Plex Mono", monospace'; c.fillText(title, 10, 18);
+}
+const scoreColor = v => v >= 0.4 ? '#3ddc97' : v <= -0.4 ? '#ff6b6b' : '#8a93a8';
+function drawScreens(t) {
+  if (!S) return;
+  for (const p of people) {
+    const s = p.desk.screen, c = s.ctx, w = s.cv.width, h = s.cv.height;
+    if (p.kind === 'trader') {
+      const m = coinOf(p.sym); if (!m) continue;
+      const data = [...m.faisca, m.preco];
+      const up = data[data.length - 1] >= data[0];
+      screenBase(c, w, h, `${m.nome} ${pxf(m.preco)}`, p.color);
+      spark(c, data, 10, 36, w - 20, h - 80, up ? '#3ddc97' : '#ff6b6b');
+      const sc = m.placar.equilibrado ?? 0;
+      c.fillStyle = '#16203a'; c.fillRect(10, h - 30, w - 20, 14);
+      c.fillStyle = scoreColor(sc); const mid = 10 + (w - 20) / 2;
+      c.fillRect(Math.min(mid, mid + sc * (w - 20) / 2), h - 30, Math.abs(sc) * (w - 20) / 2, 14);
+      c.fillStyle = '#e9ecf4'; c.fillRect(mid - 1, h - 33, 2, 20);
+    } else if (p.kind === 'macro') {
+      const m = coinOf('BTCUSDT');
+      screenBase(c, w, h, 'BTC · regime', p.color);
+      if (m) spark(c, [...m.faisca, m.preco], 10, 36, w - 20, h - 70, S.macro.v > 0 ? '#3ddc97' : S.macro.v < 0 ? '#ff6b6b' : '#8a93a8');
+      c.fillStyle = '#cfd6e6'; c.font = '14px "IBM Plex Sans", sans-serif';
+      c.fillText(S.macro.v > 0 ? 'favorável' : S.macro.v < 0 ? 'defensivo' : 'neutro', 10, h - 12);
+    } else if (p.kind === 'sentimento') {
+      const v = S.sentimento.valor ?? 50;
+      screenBase(c, w, h, 'Medo & Ganância', p.color);
+      const cx = w / 2, cy = h - 22, r = 70;
+      for (let k = 0; k < 5; k++) {
+        c.beginPath(); c.arc(cx, cy, r, Math.PI + k * Math.PI / 5, Math.PI + (k + 1) * Math.PI / 5);
+        c.strokeStyle = ['#ff6b6b', '#ff9f6b', '#c9d1d9', '#9be37a', '#3ddc97'][k]; c.lineWidth = 16; c.stroke();
+      }
+      const a = Math.PI + v / 100 * Math.PI;
+      c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(a) * (r - 4), cy + Math.sin(a) * (r - 4)); c.strokeStyle = '#e9ecf4'; c.lineWidth = 4; c.stroke();
+      c.fillStyle = '#e9ecf4'; c.font = '800 26px "Bricolage Grotesque", sans-serif'; c.fillText(String(v), cx - 16, cy - 20);
+    } else if (p.kind === 'risco' || p.kind === 'compliance') {
+      screenBase(c, w, h, p.kind === 'risco' ? 'Exposição' : 'Regras', p.color);
+      c.font = '14px "IBM Plex Mono", monospace';
+      S.robos.forEach((r, i) => {
+        const y = 52 + i * 34;
+        const expo = r.posicoes.reduce((a, x) => a + x.valor_brl, 0) / Math.max(1, r.patrimonio_brl);
+        c.fillStyle = ROBOT[r.id]?.color || '#ccc'; c.fillText(r.nome, 10, y);
+        if (p.kind === 'risco') {
+          c.fillStyle = '#16203a'; c.fillRect(130, y - 12, w - 140, 12);
+          c.fillStyle = ROBOT[r.id]?.color || '#ccc'; c.fillRect(130, y - 12, (w - 140) * Math.min(1, expo), 12);
+        } else {
+          c.fillStyle = r.parado_hoje ? '#ff6b6b' : '#3ddc97';
+          c.fillText(r.parado_hoje ? 'pausado hoje' : 'dentro das regras', 130, y);
+        }
+      });
+    } else if (p.kind === 'gerente') {
+      const r = robotOf(p.robot); if (!r) continue;
+      screenBase(c, w, h, `${r.nome} ${pct(r.retorno_pct)}`, p.color);
+      const data = r.curva.map(x => x[1]);
+      if (data.length > 1) spark(c, data, 10, 36, w - 20, h - 50, p.color);
+      else { c.fillStyle = '#8a93a8'; c.font = '14px "IBM Plex Sans", sans-serif'; c.fillText('juntando histórico…', 10, 70); }
+    }
+    s.tex.needsUpdate = true;
+  }
+  // telão: patrimônio dos robôs contra o comprar e segurar
+  const c = big.ctx, w = big.cv.width, h = big.cv.height;
+  c.fillStyle = '#0b1120'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#f2b84b'; c.font = '600 20px "IBM Plex Mono", monospace'; c.fillText('PATRIMÔNIO · DINHEIRO FICTÍCIO', 24, 38);
+  const series = [...S.robos.map(r => ({ nome: r.nome, cor: ROBOT[r.id]?.color, pts: r.curva, v: r.patrimonio_brl, ret: r.retorno_pct })),
+    { nome: 'Comprar e segurar', cor: '#8a93a8', pts: S.hodl.curva, v: S.hodl.patrimonio_brl, ret: S.hodl.retorno_pct }];
+  const all = series.flatMap(s => s.pts.map(p => p[1]));
+  const x0 = 24, y0 = 60, cw = w - 48, ch = 200;
+  if (all.length > 2) {
+    const mn = Math.min(...all, S.saldo_inicial_brl), mx = Math.max(...all, S.saldo_inicial_brl), rg = (mx - mn) || 1;
+    const t0 = Math.min(...series.map(s => s.pts[0]?.[0] ?? Infinity)), t1 = Math.max(...series.map(s => s.pts.at(-1)?.[0] ?? 0));
+    const yb = y0 + ch - (S.saldo_inicial_brl - mn) / rg * ch;
+    c.strokeStyle = '#26314a'; c.setLineDash([6, 6]); c.beginPath(); c.moveTo(x0, yb); c.lineTo(x0 + cw, yb); c.stroke(); c.setLineDash([]);
+    for (const s of series) {
+      if (s.pts.length < 2) continue;
+      c.beginPath();
+      s.pts.forEach(([tt, v], i) => { const X = x0 + (tt - t0) / ((t1 - t0) || 1) * cw, Y = y0 + ch - (v - mn) / rg * ch; i ? c.lineTo(X, Y) : c.moveTo(X, Y); });
+      c.strokeStyle = s.cor; c.lineWidth = 3; c.stroke();
+    }
+  } else { c.fillStyle = '#8a93a8'; c.font = '18px "IBM Plex Sans", sans-serif'; c.fillText('O gráfico aparece depois dos primeiros minutos.', x0, 150); }
+  c.font = '17px "IBM Plex Sans", sans-serif';
+  series.forEach((s, i) => {
+    const x = x0 + (i % 2) * 300, y = 300 + Math.floor(i / 2) * 28;
+    c.fillStyle = s.cor; c.fillRect(x, y - 12, 12, 12);
+    c.fillStyle = '#e9ecf4'; c.fillText(`${s.nome}  ${brl(s.v)}  ${pct(s.ret)}`, x + 20, y);
+  });
+  big.tex.needsUpdate = true;
+}
+
+/* =========================================================
+   Sobreposição: placas, balões, nomes
+   ========================================================= */
+const proj = new THREE.Vector3();
+function toScreen(x, y, z) { proj.set(x, y, z).project(camera); return [(proj.x + 1) / 2 * W, (1 - proj.y) / 2 * H]; }
+const zoneLabels = ZONES.map(z => {
+  const el = document.createElement('div'); el.className = 'zone'; el.style.setProperty('--c', z.color); el.textContent = z.name; overlay.appendChild(el);
+  return { z, el };
+});
+let signs = [];
+function buildSigns() {
+  signs.forEach(s => s.el.remove());
+  signs = people.filter(p => p.kind === 'trader' || p.kind === 'gerente').map(p => {
+    const el = document.createElement('div'); el.className = 'sign'; overlay.appendChild(el);
+    return { p, el };
+  });
+}
+const bubbles = new Map();
+function bubbleOf(p) {
+  if (!bubbles.has(p)) { const el = document.createElement('div'); el.className = 'bubble'; el.hidden = true; el.style.setProperty('--c', p.color); overlay.appendChild(el); bubbles.set(p, el); }
+  return bubbles.get(p);
+}
+function updateOverlay() {
+  for (const { z, el } of zoneLabels) {
+    const [x, y] = toScreen(z.x, 0.05, z.back ? z.z + z.d / 2 - 0.1 : z.z + z.d / 2 - 0.3);
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+  for (const { p, el } of signs) {
+    const [x, y] = toScreen(p.desk.signPos.x, p.desk.signPos.y, p.desk.signPos.z);
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    if (!S) continue;
+    let html = '', cor = '';
+    if (p.kind === 'trader') {
+      const m = coinOf(p.sym); if (!m) continue;
+      const v = m.var24h ?? 0, sc = m.placar.equilibrado ?? 0;
+      const held = S.robos.filter(r => r.posicoes.some(x => x.simbolo === p.sym)).map(r => r.nome[0]).join('');
+      cor = scoreColor(sc);
+      html = `<b>${esc(m.nome)}</b><span class="${v >= 0 ? 'up' : 'down'}">${pct(v)}</span>${held ? `<span title="Robôs com posição">●${esc(held)}</span>` : ''}`;
+    } else {
+      const r = robotOf(p.robot); if (!r) continue;
+      cor = ROBOT[p.robot].color;
+      html = `<b>${esc(r.nome)}</b><span class="${r.retorno_pct >= 0 ? 'up' : 'down'}">${pct(r.retorno_pct)}</span>`;
+    }
+    if (el._h !== html) { el.innerHTML = html; el._h = html; }
+    el.style.setProperty('--c', cor);
+  }
+  const now = performance.now();
+  for (const p of people) {
+    const el = bubbleOf(p), show = now < p.bubbleUntil;
+    if (el.hidden === show) el.hidden = !show;
+    if (!show) continue;
+    if (p.bubbleDirty) { el.innerHTML = `<b>${esc(p.name)} · ${esc(p.role)}</b>${esc(p.bubbleText)}`; p.bubbleDirty = false; }
+    const [x, y] = toScreen(p.pos.x, p.mesh.g.position.y + 1.62, p.pos.z);
+    const bw = el.offsetWidth / 2 + 6;
+    el.style.left = Math.min(W - bw, Math.max(bw, x)) + 'px';
+    el.style.top = Math.max(el.offsetHeight + 8, y) + 'px';
+  }
+}
+
+/* =========================================================
+   Painel
+   ========================================================= */
+const $ = id => document.getElementById(id);
+let lastBoard = '', lastVotes = '', lastLog = '', lastRb = '';
+function renderPanel() {
+  if (!S) return;
+  const linhas = [...S.robos.map(r => ({ id: r.id, nome: r.nome, sub: `${r.estilo} · ${r.posicoes.length} posição(ões) · ${r.n_trades} operações`, v: r.patrimonio_brl, ret: r.retorno_pct, cor: ROBOT[r.id]?.color })),
+    { id: 'hodl', nome: 'Comprar e segurar', sub: 'Régua: dividiu igual entre as moedas e não mexeu mais', v: S.hodl.patrimonio_brl, ret: S.hodl.retorno_pct, cor: '#8a93a8' }]
+    .sort((a, b) => b.v - a.v);
+  const board = linhas.map((l, i) => `<button type="button" class="row" data-robot="${l.id}" style="--c:${l.cor}" aria-pressed="${l.id === selectedRobot}" ${l.id === 'hodl' ? 'disabled' : ''}>
+      <span class="sw"></span><span class="nm"><b><span class="rank">${i + 1}º</span> ${esc(l.nome)}</b><span>${esc(l.sub)}</span></span>
+      <span class="val">${brl(l.v)}<small class="${l.ret >= 0 ? 'up' : 'down'}">${pct(l.ret)}</small></span></button>`).join('');
+  if (board !== lastBoard) { $('board').innerHTML = board; lastBoard = board; }
+  $('boardNote').textContent = `Cada robô começou com ${brl(S.saldo_inicial_brl)}. Decisões no fechamento de cada vela de ${S.tempo_grafico}; próxima às ${hora(S.proximo_fechamento)}.`;
+
+  const r = robotOf(selectedRobot);
+  $('robotBlock').hidden = !r;
+  if (r) {
+    $('rbStyle').textContent = r.estilo + (r.otimizado ? ' · ajustado pelo backtest' : '');
+    $('rbName').textContent = r.nome;
+    $('rbName').style.color = ROBOT[r.id]?.color;
+    $('rbDesc').textContent = `${r.descricao} Reavalia ${r.decide_a_cada === '1d' ? 'uma vez por dia, às 21h' : 'a cada ' + r.decide_a_cada}. Maior queda até agora: ${nf(r.max_queda_pct, 1)}%. Taxas pagas: ${brl(r.taxas_brl)}.`;
+    let body = '';
+    if (rbTab === 'pos') {
+      body = r.posicoes.length ? `<div class="scroll"><table><tr><th class="l">Moeda</th><th>Valor</th><th>Entrada</th><th>Agora</th><th>Resultado</th><th>Stop</th></tr>${
+        r.posicoes.map(p => `<tr><td class="l">${esc(p.nome)}</td><td>${brl(p.valor_brl)}</td><td>${pxf(p.entrada)}</td><td>${pxf(p.preco)}</td><td class="${p.lucro_pct >= 0 ? 'up' : 'down'}">${pct(p.lucro_pct)}</td><td>${pxf(p.stop)}${p.protegida ? ' 🛡' : ''}</td></tr>`).join('')}</table></div>`
+        : `<p class="empty">Sem posições: todo o dinheiro em caixa (${brl(r.caixa_brl)}). O robô espera os agentes concordarem.</p>`;
+    } else if (rbTab === 'trades') {
+      body = r.trades.length ? `<div class="scroll"><table><tr><th class="l">Moeda</th><th>Resultado</th><th class="l">Motivo</th><th>Fechou</th></tr>${
+        r.trades.map(t => `<tr><td class="l">${esc(t.nome)}</td><td class="${t.lucro >= 0 ? 'up' : 'down'}">${pct(t.lucro_pct)}</td><td class="l">${esc(t.motivo)}</td><td>${dataHora(t.fechada_em)}</td></tr>`).join('')}</table></div>
+        <p class="note">Acerto: ${r.acerto_pct == null ? '—' : nf(r.acerto_pct, 0) + '%'}. Robôs de tendência acertam pouco, mas ganham mais nos acertos do que perdem nos erros.</p>`
+        : '<p class="empty">Nenhuma operação fechada ainda.</p>';
+    } else {
+      const b = S.backtest?.robos?.[r.id], h = S.backtest?.hodl;
+      body = b ? `<p class="note">Backtest em ${esc(S.backtest.periodo)}, com taxas:</p><table>
+        <tr><th class="l"></th><th>${esc(r.nome)}</th><th>Comprar e segurar</th></tr>
+        <tr><td class="l">Retorno</td><td class="${b.retorno_pct >= 0 ? 'up' : 'down'}">${pct(b.retorno_pct)}</td><td>${pct(h.retorno_pct)}</td></tr>
+        <tr><td class="l">Maior queda</td><td>${nf(b.max_queda_pct, 1)}%</td><td>${nf(h.max_queda_pct, 1)}%</td></tr>
+        <tr><td class="l">Sharpe</td><td>${nf(b.sharpe, 2)}</td><td>${nf(h.sharpe, 2)}</td></tr>
+        <tr><td class="l">Operações</td><td>${b.trades}</td><td>—</td></tr></table>
+        <p class="note">Passado não garante futuro. Rode <span class="mono">backtest.bat</span> para atualizar.</p>`
+        : '<p class="empty">Rode o backtest.bat para ver como esse robô teria ido no passado.</p>';
+    }
+    const key = rbTab + body;
+    if (key !== lastRb) { $('rbBody').innerHTML = body; lastRb = key; }
+  }
+
+  const ag = S.agentes;
+  const vt = `<tr><th class="l">Moeda</th>${ag.map(a => `<th title="${esc(a.nome)}">${esc(a.nome)}</th>`).join('')}<th>Placar</th></tr>` +
+    S.moedas.map(m => `<tr class="coinrow" data-coin="${m.simbolo}"><td class="l"><b style="color:${COIN[m.simbolo]?.color || 'inherit'}">${esc(m.nome)}</b></td>${
+      ag.map(a => { const v = m.votos[a.id]?.v ?? 0; return `<td><span class="cell" title="${esc(a.nome)}: ${esc(m.votos[a.id]?.txt || '')}" style="background:${voteColor(v)}"></span></td>`; }).join('')
+    }<td class="${(m.placar[selectedRobot] ?? 0) >= 0 ? 'up' : 'down'}">${nf(m.placar[selectedRobot] ?? 0, 2)}</td></tr>`).join('');
+  if (vt !== lastVotes) { $('votes').innerHTML = vt; lastVotes = vt; }
+  renderReasons();
+
+  $('macroTxt').textContent = 'Macro: ' + (S.macro.txt || '—');
+  $('fngTxt').textContent = S.sentimento.valor != null ? `Medo e Ganância: ${S.sentimento.valor} (${S.sentimento.rotulo})` : 'Medo e Ganância: sem dados';
+
+  const lg = S.eventos.length ? S.eventos.slice(0, 40).map(e => `<li style="--c:${ROBOT[e.robo]?.color || 'var(--accent)'}"><time>${dataHora(e.t)}</time><span>${e.robo_nome ? `<b>${esc(e.robo_nome)}</b> ` : ''}${esc(e.texto)}</span></li>`).join('')
+    : '<li class="empty">Nada ainda.</li>';
+  if (lg !== lastLog) { $('log').innerHTML = lg; lastLog = lg; }
+}
+function voteColor(v) {
+  if (v >= 0.5) return '#3ddc97';
+  if (v >= 0.15) return '#2a8f66';
+  if (v <= -0.5) return '#ff6b6b';
+  if (v <= -0.15) return '#a84a4a';
+  return '#3a4256';
+}
+function renderReasons() {
+  const el = $('reasons');
+  const m = selectedCoin && coinOf(selectedCoin);
+  el.hidden = !m;
+  if (!m) return;
+  const html = `<h2 style="color:${COIN[m.simbolo]?.color || 'inherit'}">${esc(m.nome)} · ${pxf(m.preco)}</h2><ul class="reasons">${
+    S.agentes.map(a => { const v = m.votos[a.id]; return `<li><b style="color:${voteColor(v?.v ?? 0)}">${esc(a.nome)} ${v ? (v.v >= 0 ? '+' : '') + nf(v.v, 1) : ''}</b><span>${esc(v?.txt || 'sem dados')}</span></li>`; }).join('')
+  }</ul><p class="note">Placar: ${S.robos.map(r => `${esc(r.nome)} ${nf(m.placar[r.id] ?? 0, 2)}`).join(' · ')}</p>`;
+  if (el._h !== html) { el.innerHTML = html; el._h = html; }
+}
+$('board').addEventListener('click', e => { const b = e.target.closest('[data-robot]'); if (b && b.dataset.robot !== 'hodl') { selectedRobot = b.dataset.robot; lastBoard = ''; lastVotes = ''; renderPanel(); } });
+$('votes').addEventListener('click', e => { const r = e.target.closest('[data-coin]'); if (r) { selectedCoin = selectedCoin === r.dataset.coin ? null : r.dataset.coin; renderReasons(); } });
+document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => {
+  rbTab = b.dataset.tab;
+  document.querySelectorAll('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
+  renderPanel();
+}));
+
+/* ---------- clicar num agente ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let pickables = [];
+function rebuildPickables() { pickables = []; people.forEach(p => p.mesh.g.traverse(o => { if (o.isMesh && o !== p.mesh.parts.ring) pickables.push(o); })); }
+rebuildPickables();
+let downAt = null, selectedPerson = null;
+canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
+  const r = canvas.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(pickables, false)[0];
+  selectedPerson = hit ? hit.object.userData.person : null;
+  if (!selectedPerson || !S) return;
+  const p = selectedPerson;
+  if (p.kind === 'trader') { selectedCoin = p.sym; renderReasons(); const m = coinOf(p.sym); say(p, `Cuido do ${m.nome}. Placar do Equilibrado: ${nf(m.placar.equilibrado ?? 0, 2)}.`); }
+  else if (p.kind === 'gerente') { selectedRobot = p.robot; lastBoard = ''; renderPanel(); const r = robotOf(p.robot); say(p, `${r.nome}: ${brl(r.patrimonio_brl)} (${pct(r.retorno_pct)}).`); }
+  else if (p.kind === 'macro') say(p, S.macro.txt);
+  else if (p.kind === 'sentimento') say(p, `Medo e Ganância: ${S.sentimento.valor ?? '—'} (${S.sentimento.rotulo}).`);
+  else say(p, p.kind === 'risco' ? 'Eu aprovo cada compra: tamanho da posição, stop e limite de perda do dia.' : 'Eu confiro as regras: sem alavancagem, sem venda a descoberto, ordem mínima de 10 USDT.');
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.buttons) return;
+  const r = canvas.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  canvas.style.cursor = ray.intersectObjects(pickables, false).length ? 'pointer' : '';
+});
+
+/* =========================================================
+   Laço principal
+   ========================================================= */
+function lerpAngle(a, b, t) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * t; }
+function pose(p, dt) {
+  const { g, parts } = p.mesh;
+  p.rot = lerpAngle(p.rot, p.targetRot, Math.min(1, dt * 10));
+  g.rotation.y = p.rot; g.position.set(p.pos.x, 0, p.pos.z);
+  const t = p.anim, seated = p.state === 'sit';
+  let lL = 0, lR = 0, aL = 0, aR = 0, y = 0;
+  if (seated) { y = 0.06; lL = lR = -Math.PI / 2; aL = -1.15 + Math.sin(t * 15) * 0.12; aR = -1.15 + Math.sin(t * 15 + 2) * 0.12; }
+  else if (p.state === 'walk') { const s = Math.sin(t * 9.5); lL = s * 0.6; lR = -s * 0.6; aL = -s * 0.5; aR = s * 0.5; y = Math.abs(Math.cos(t * 9.5)) * 0.045; }
+  else { aL = Math.sin(t * 1.6) * 0.04; aR = -aL; if (performance.now() < p.bubbleUntil) aR = -0.9 + Math.sin(t * 6) * 0.25; if (p.state === 'coffee') aR = -1.3; }
+  g.position.y = y;
+  parts.legL.rotation.x = lL; parts.legR.rotation.x = lR; parts.armL.rotation.x = aL; parts.armR.rotation.x = aR;
+  parts.ring.visible = p === selectedPerson;
+}
+const clock = new THREE.Clock();
+let screenAcc = 0;
+function frame() {
+  const dt = Math.min(0.1, clock.getDelta());
+  for (const p of people) {
+    p.anim += dt;
+    if (p.state === 'walk') stepWalk(p, dt);
+    else if (p.state === 'coffee') { p.timer -= dt; if (p.timer <= 0) goHome(p); }
+    pose(p, dt);
+  }
+  for (let i = packets.length - 1; i >= 0; i--) {
+    const k = packets[i]; k.t += dt / k.dur; const u = Math.min(1, k.t);
+    k.m.position.lerpVectors(k.from, k.to, u); k.m.position.y += Math.sin(u * Math.PI) * (2 + k.from.distanceTo(k.to) * 0.12);
+    k.m.rotation.y += dt * 6;
+    if (k.t >= 1) { scene.remove(k.m); k.m.material.dispose(); packets.splice(i, 1); }
+  }
+  for (const l of leds) if (Math.random() < 0.03) l.color.set(Math.random() < 0.5 ? '#3ddc97' : Math.random() < 0.5 ? '#6f9bff' : '#1a2a3a');
+  chatter();
+  screenAcc += dt;
+  if (screenAcc > 0.5) { screenAcc = 0; drawScreens(); }
+  controls.update();
+  renderer.render(scene, camera);
+  updateOverlay();
+  $('clock').textContent = S ? `${new Date().toLocaleTimeString('pt-BR')} · USDT/BRL ${nf(S.usdt_brl, 2)}` : new Date().toLocaleTimeString('pt-BR');
+  requestAnimationFrame(frame);
+}
+// ganchos para testar animações pelo console do navegador
+window.agencia = { animarEvento: e => animateEvent(e), estado: () => S };
+poll();
+setInterval(poll, 2000);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

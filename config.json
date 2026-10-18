@@ -1,0 +1,12 @@
+{
+  "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT"],
+  "tempo_grafico": "1h",
+  "saldo_inicial_brl": 10000,
+  "taxa": 0.001,
+  "derrapagem": 0.0005,
+  "porta": 8787,
+  "intervalo_precos_seg": 5,
+  "intervalo_analise_seg": 60,
+  "dias_backtest": 1460,
+  "dias_treino": 900
+}
